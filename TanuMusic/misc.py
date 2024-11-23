@@ -11,6 +11,7 @@ from .logging import LOGGER
 
 SUDOERS = filters.user()
 
+
 HAPP = None
 _boot_ = time.time()
 
@@ -38,27 +39,35 @@ XCB = [
 
 def dbb():
     global db
+    global clonedb
     db = {}
-    LOGGER(__name__).info(f"✦ Local Database Initialized...💛")
+    clonedb = {}
+    LOGGER(__name__).info(f"✦ Local Database Initialized...💛.")
 
 
 async def sudo():
     global SUDOERS
-    SUDOERS.add(config.OWNER_ID)
-    sudoersdb = mongodb.sudoers
-    sudoers = await sudoersdb.find_one({"sudo": "sudo"})
-    sudoers = [] if not sudoers else sudoers["sudoers"]
-    if config.OWNER_ID not in sudoers:
-        sudoers.append(config.OWNER_ID)
-        await sudoersdb.update_one(
-            {"sudo": "sudo"},
-            {"$set": {"sudoers": sudoers}},
-            upsert=True,
-        )
-    if sudoers:
-        for user_id in sudoers:
+    OWNER = config.OWNER_ID
+    if config.MONGO_DB_URI is None:
+        for user_id in OWNER:
             SUDOERS.add(user_id)
-    LOGGER(__name__).info(f"✦ Sudoers Loaded...🧡")
+    else:
+        sudoersdb = mongodb.sudoers
+        sudoers = await sudoersdb.find_one({"sudo": "sudo"})  # Await the database call
+        sudoers = [] if not sudoers else sudoers.get("sudoers", [])
+        for user_id in OWNER:
+            SUDOERS.add(user_id)
+            if user_id not in sudoers:
+                sudoers.append(user_id)
+                await sudoersdb.update_one(
+                    {"sudo": "sudo"},
+                    {"$set": {"sudoers": sudoers}},
+                    upsert=True,
+                )
+        if sudoers:
+            for x in sudoers:
+                SUDOERS.add(x)
+    LOGGER(__name__).info(f"✦ Sudoers Loaded...❤️.")
 
 
 def heroku():
@@ -71,5 +80,5 @@ def heroku():
                 LOGGER(__name__).info(f"✦ Heroku App Configured...💙")
             except BaseException:
                 LOGGER(__name__).warning(
-                    f"✦ Please make sure your Heroku API Key and Your App name are configured correctly in the heroku...💚"
+                    f"✦ Please make sure your Heroku API Key and Your App name are configured correctly in the heroku...💚."
                 )
